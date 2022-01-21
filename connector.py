@@ -19,7 +19,7 @@ logging.getLogger("discord").setLevel(logging.WARNING)
 logging.debug("Removed Discord.py logs")
 
 bot = commands.Bot(command_prefix='$', description='A bot to control the OBS Studio')
-scenes = [False, []]
+scenes = (False, [])
 
 
 @tasks.loop(seconds = config['update_time'])
@@ -58,8 +58,7 @@ async def on_ready():
     update_scene_list.start()
     print("Loop Started")
     
-    
-                        
+                          
 @bot.command()
 async def ping(ctx):
     await ctx.send('pong')
@@ -68,16 +67,24 @@ async def ping(ctx):
 @bot.command()
 async def list(ctx):
     
-    print(core.scenes)
+    global scenes
     
-    ok, scenes = await core.scene_list()
+    ok = scenes[0]
+    lst = scenes[1]
     
     if not ok:
         ctx.send('Ocorreu um erro ao obter a lista de cenas, talvez o obs esteja desconectado ou não está configurado corretamente')
         return
     
-    for scene in scenes:
-        await ctx.send(scene)
+    strLst = ""
+    for i in range(len(lst)):
+        strLst += f"**{i + 1}**. {lst[i]}\n"
+        
+    embedmsg = utils.createEmbed(title="Lista de Cenas", description=strLst, color=0x00ff00, fields=[], img="")
+    callback = await ctx.send(embed=embedmsg)
+    
+    print("Callback ID: " + str(callback.id))
+     
         
 @bot.command()
 async def cam(ctx, *, cam_name: str):
