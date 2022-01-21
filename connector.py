@@ -34,6 +34,35 @@ async def update_scene_list():
     scenes = (_scenes[0], _scenes[1])
 
 
+@tasks.loop(seconds = config['update_time'])   
+async def update_embed():
+    guild = list(filter(lambda x: x.id == config['guild-id'], bot.guilds))
+    
+    if len(guild) >= 1:
+        guild = guild[0]
+    else:
+        return
+
+    channel = list(filter(lambda x: x.id == config['channel-id'], guild.text_channels))
+    
+    if len(channel) >= 1:
+        channel = channel[0]
+    else:
+        return
+
+    try: 
+        message = await channel.fetch_message(config["msg-id"])
+        if scenes[0]:
+            await message.edit(content="", embed=scene_list_embed(scenes[1]))
+        else:
+            await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
+    except NotFound: 
+        # TODO: Creating another one
+        pass
+ 
+    return
+
+
 @bot.event
 async def on_ready():
     """
@@ -56,6 +85,7 @@ async def on_ready():
     
     # Loop to update the scene list, every 'update_time' seconds
     update_scene_list.start()
+    update_embed.start()
     print("Loop Started")
     
                           
@@ -65,37 +95,35 @@ async def ping(ctx):
     
     
 @bot.command()
-async def list(ctx):
-    
+async def setup(ctx):
+    guild = ctx.message.guild
+    channel = await guild.create_text_channel(config["channel-name"])
+          
     global scenes
     
     ok = scenes[0]
     lst = scenes[1]
     
     if not ok:
-        ctx.send('Ocorreu um erro ao obter a lista de cenas, talvez o obs esteja desconectado ou não está configurado corretamente')
-        return
+        msg = await channel.send('Ocorreu um erro ao obter a lista de cenas, talvez o obs esteja desconectado ou não está configurado corretamente')
+    else:
+        msg = await channel.send(embed=scene_list_embed(lst))
+
+    config["guild-id"]   = guild.id
+    config["channel-id"] = channel.id
+    config["msg-id"]     = msg.id
     
+    with open('credentials.json', 'w') as outfile:
+        json.dump(config, outfile, indent=4)
+
+
+def scene_list_embed(lst):
     strLst = ""
     for i in range(len(lst)):
         strLst += f"**{i + 1}**. {lst[i]}\n"
         
     embedmsg = utils.createEmbed(title="Lista de Cenas", description=strLst, color=0x00ff00, fields=[], img="")
-    callback = await ctx.send(embed=embedmsg)
     
-    print("Callback ID: " + str(callback.id))
-     
-        
-@bot.command()
-async def cam(ctx, *, cam_name: str):
-    
-    ok = await core.set_scene(cam_name)
-
-    if not ok:
-        await ctx.send('Falha ao mudar de camera, talvez o obs esteja desconectado ou não está configurado corretamente')
-
-    if ok:
-        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=cam_name))
-
+    return embedmsg
 
 bot.run(config['discord_token'])
