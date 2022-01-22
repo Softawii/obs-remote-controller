@@ -23,14 +23,15 @@ logging.debug("Removed Discord.py logs")
 bot = commands.Bot(command_prefix='$', description='A bot to control the OBS Studio')
 scenes = (False, [])
 current_page = []
+last_page_size = 0
 
-page_system = PageSystem(['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'])
+page_system = PageSystem(['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'], '◀️','▶️')
 PAGE_CONTAINS_EMOJI = lambda x, reactions: len(list(filter(lambda y: x == y.emoji, reactions)))
 
 
 @tasks.loop(seconds = config['update_time'])
 async def update_scene_list():
-    global scenes, current_page
+    global scenes, current_page, last_page_size
     
     _scenes = await core.scene_list()
     
@@ -55,16 +56,24 @@ async def update_scene_list():
                 await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
         except discord.NotFound: 
             # TODO: Creating another one
-            pass
+            return
         
-        # Adding reactions
+        # Adding reactions 
         current_page_items = len(current_page)
+        
+        if current_page_items == last_page_size:
+            return
+        
+        last_page_size = current_page_items
+        
+        await message.clear_reaction(page_system.next_emoji)
+        await message.add_reaction(page_system.back_emoji)
         for i in range(len(page_system.emoji_list)):
             if i >= current_page_items and PAGE_CONTAINS_EMOJI(page_system.emoji_list[i], message.reactions):
                 await message.clear_reaction(page_system.emoji_list[i])
             elif i < current_page_items and not PAGE_CONTAINS_EMOJI(page_system.emoji_list[i], message.reactions):
                 await message.add_reaction(page_system.emoji_list[i])    
-     
+        await message.add_reaction(page_system.next_emoji)
 
 def get_channel():
     guild = list(filter(lambda x: x.id == config['guild-id'], bot.guilds))
@@ -128,17 +137,21 @@ async def on_raw_reaction_add(payload):
                 index = page_system.emoji_list.index(emoji.name)
                 await cam(bot.get_channel(payload.channel_id), current_page[index])
             
+            if emoji.name == page_system.next_emoji:
+                page_system.increase_page()
+                current_page = page_system.get_current_page_items(scenes[1])
+                await update_scene_list()
+            elif emoji.name == page_system.back_emoji:
+                page_system.decrease_page()
+                current_page = page_system.get_current_page_items(scenes[1])
+                await update_scene_list()
+            
                       
 @bot.command()
 async def ping(ctx):
     await ctx.send('pong')
     
-
-@bot.command()
-async def page(ctx, page: int):
-    page_system.set_page(page)
-    
-    
+       
 @bot.command()
 async def setup(ctx):
     guild = ctx.message.guild
