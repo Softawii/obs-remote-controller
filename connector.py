@@ -13,7 +13,8 @@ import math
 
 # My content
 import core.core as core
-import utils
+import utils.utils as utils
+from utils.pages import PageSystem
 
 config = json.load(open('credentials.json'))
 logging.getLogger("discord").setLevel(logging.WARNING)
@@ -22,24 +23,13 @@ logging.debug("Removed Discord.py logs")
 bot = commands.Bot(command_prefix='$', description='A bot to control the OBS Studio')
 scenes = (False, [])
 
-current_page = 1 # Current 
-current_page_items = 0, # Items in the page
-PAGE_SETTINGS = (9,     # Max number of items in a page
-                 ['1️⃣',
-                  '2️⃣',
-                  '3️⃣',
-                  '4️⃣',
-                  '5️⃣',
-                  '6️⃣',
-                  '7️⃣',
-                  '8️⃣',
-                  '9️⃣'])  # Emojis per page
+page_system = PageSystem(['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'])
 PAGE_CONTAINS_EMOJI = lambda x, reactions: len(list(filter(lambda y: x == y.emoji, reactions)))
 
 
 @tasks.loop(seconds = config['update_time'])
 async def update_scene_list():
-    global scenes, current_page, current_page_items, PAGE_SETTINGS
+    global scenes, current_page, current_page_items
     
     _scenes = await core.scene_list()
     
@@ -48,52 +38,49 @@ async def update_scene_list():
     
     scenes = (_scenes[0], _scenes[1])
     
-    last_page_size = len(scenes[1]) % PAGE_SETTINGS[0]
-    last_page = math.ceil(len(scenes[1]) / PAGE_SETTINGS[0])
-    
-    if last_page_size == 0 or current_page != last_page:
-        current_page_items = PAGE_SETTINGS[0]
-    else:
-        current_page_items = last_page_size
-    
-    # print('update_scene_list: last_page_size = ' + str(last_page_size))  
-    # print('update_scene_list: last_page = ' + str(last_page))  
-    # print('update_scene_list: current_page_items = ' + str(current_page_items))
+    channel = get_channel()
+    if channel != False:
+        
+        # Update in the message
+        try: 
+            message = await channel.fetch_message(config["msg-id"])
+            if scenes[0]:
+                await message.edit(content="", embed=scene_list_embed(scenes[1]))
+            else:
+                await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
+        except NotFound: 
+            # TODO: Creating another one
+            return False
 
-
-@tasks.loop(seconds = config['update_time'])   
-async def update_embed():
+def get_channel():
     guild = list(filter(lambda x: x.id == config['guild-id'], bot.guilds))
     
     if len(guild) >= 1:
         guild = guild[0]
     else:
-        return
+        return False
 
     channel = list(filter(lambda x: x.id == config['channel-id'], guild.text_channels))
     
     if len(channel) >= 1:
         channel = channel[0]
     else:
-        return
+        return False
 
-    # Update in the message
-    try: 
-        message = await channel.fetch_message(config["msg-id"])
-        if scenes[0]:
-            await message.edit(content="", embed=scene_list_embed(scenes[1]))
-        else:
-            await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
-    except NotFound: 
-        # TODO: Creating another one
-        pass
+    return channel
+
+
+@tasks.loop(seconds = config['update_time'])   
+async def update_embed():
     
-    # Adding reactions
-    for i in range(PAGE_SETTINGS[0]):
-        if i >= current_page_items and PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
-            await message.clear_reaction(PAGE_SETTINGS[1][i])
-        elif i < current_page_items and not PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
-            await message.add_reaction(PAGE_SETTINGS[1][i])    
+    print('update_embed: page_system = ' + str(page_system.get_current_page_items(scenes[1])))
+    
+    # # Adding reactions
+    # for i in range(len(page_system.emoji_list)):
+    #     if i >= current_page_items and PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
+    #         await message.clear_reaction(PAGE_SETTINGS[1][i])
+    #     elif i < current_page_items and not PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
+    #         await message.add_reaction(PAGE_SETTINGS[1][i])    
      
     return
 
@@ -146,6 +133,11 @@ async def on_raw_reaction_add(payload):
 @bot.command()
 async def ping(ctx):
     await ctx.send('pong')
+    
+
+@bot.command()
+async def page(ctx, page: int):
+    page_system.set_page(page)
     
     
 @bot.command()
