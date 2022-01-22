@@ -9,6 +9,7 @@ import json
 import os
 import logging
 import sys
+import math
 
 # My content
 import core.core as core
@@ -21,10 +22,24 @@ logging.debug("Removed Discord.py logs")
 bot = commands.Bot(command_prefix='$', description='A bot to control the OBS Studio')
 scenes = (False, [])
 
+current_page = 1 # Current 
+current_page_items = 0, # Items in the page
+PAGE_SETTINGS = (9,     # Max number of items in a page
+                 ['1️⃣',
+                  '2️⃣',
+                  '3️⃣',
+                  '4️⃣',
+                  '5️⃣',
+                  '6️⃣',
+                  '7️⃣',
+                  '8️⃣',
+                  '9️⃣'])  # Emojis per page
+PAGE_CONTAINS_EMOJI = lambda x, reactions: len(list(filter(lambda y: x == y.emoji, reactions)))
+
 
 @tasks.loop(seconds = config['update_time'])
 async def update_scene_list():
-    global scenes
+    global scenes, current_page, current_page_items, PAGE_SETTINGS
     
     _scenes = await core.scene_list()
     
@@ -32,6 +47,18 @@ async def update_scene_list():
         print('update_scene_list: updated list = ' + str(_scenes[0]) + ' ' + str(_scenes[1]))
     
     scenes = (_scenes[0], _scenes[1])
+    
+    last_page_size = len(scenes[1]) % PAGE_SETTINGS[0]
+    last_page = math.ceil(len(scenes[1]) / PAGE_SETTINGS[0])
+    
+    if last_page_size == 0 or current_page != last_page:
+        current_page_items = PAGE_SETTINGS[0]
+    else:
+        current_page_items = last_page_size
+    
+    # print('update_scene_list: last_page_size = ' + str(last_page_size))  
+    # print('update_scene_list: last_page = ' + str(last_page))  
+    # print('update_scene_list: current_page_items = ' + str(current_page_items))
 
 
 @tasks.loop(seconds = config['update_time'])   
@@ -50,6 +77,7 @@ async def update_embed():
     else:
         return
 
+    # Update in the message
     try: 
         message = await channel.fetch_message(config["msg-id"])
         if scenes[0]:
@@ -59,7 +87,14 @@ async def update_embed():
     except NotFound: 
         # TODO: Creating another one
         pass
- 
+    
+    # Adding reactions
+    for i in range(PAGE_SETTINGS[0]):
+        if i >= current_page_items and PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
+            await message.clear_reaction(PAGE_SETTINGS[1][i])
+        elif i < current_page_items and not PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
+            await message.add_reaction(PAGE_SETTINGS[1][i])    
+     
     return
 
 
@@ -88,7 +123,26 @@ async def on_ready():
     update_embed.start()
     print("Loop Started")
     
-                          
+    
+@bot.event
+async def on_raw_reaction_add(payload):
+    global scenes, current_page, current_page_items, PAGE_SETTINGS
+    
+    message = await bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+    reaction = discord.utils.get(message.reactions, emoji="📩")
+    user = payload.member
+    
+    emoji = payload.emoji
+    
+    if payload.guild_id == config["guild-id"] and payload.channel_id == config["channel-id"] and message.id == config["msg-id"]:
+        
+        await message.remove_reaction(emoji, user)
+        
+        if emoji.name in PAGE_SETTINGS[1][:current_page_items]:
+            index = PAGE_SETTINGS[1].index(emoji.name)
+            await cam(bot.get_channel(payload.channel_id), scenes[1][index])
+            
+                      
 @bot.command()
 async def ping(ctx):
     await ctx.send('pong')
@@ -115,6 +169,17 @@ async def setup(ctx):
     
     with open('credentials.json', 'w') as outfile:
         json.dump(config, outfile, indent=4)
+
+
+async def cam(channel, cam_name: str):
+
+    ok = await core.set_scene(cam_name)
+
+    if not ok:
+        await channel.send('Falha ao mudar de camera, talvez o obs esteja desconectado ou não está configurado corretamente', delete_after=10)
+
+    if ok:
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=cam_name))
 
 
 def scene_list_embed(lst):
