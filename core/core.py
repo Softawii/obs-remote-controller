@@ -23,7 +23,7 @@ async def scene_list():
     
     request = simpleobsws.Request('GetSceneList')
 
-    ret = await _ws.call(request) # Perform the request    
+    ret = await call(request) # Perform the request    
     
     scenes = ret.responseData['scenes']
     scenes = list(map(lambda scene: scene['sceneName'], scenes))
@@ -34,7 +34,7 @@ async def scene_list():
 async def set_scene(scene_name):
     request = simpleobsws.Request('SetCurrentProgramScene', { 'sceneName': scene_name })
 
-    ret = await _ws.call(request) # Perform the request    
+    ret = await call(request) # Perform the request    
 
     return ret.ok()
 
@@ -42,8 +42,17 @@ async def set_scene(scene_name):
 async def get_current_scene():
     request = simpleobsws.Request('GetCurrentProgramScene')
 
-    ret = await _ws.call(request) # Perform the request    
+    ret = await call(request) # Perform the request    
 
     print (ret.responseData)
     
     return (ret.ok(), ret.responseData['currentProgramSceneName'])
+
+async def call(request):
+    try:
+        ret = await _ws.call(request)
+        return ret
+    except simpleobsws.NotIdentifiedError as e:
+        await setup()
+        await asyncio.sleep(_config['update_time'])
+        await call(request)
