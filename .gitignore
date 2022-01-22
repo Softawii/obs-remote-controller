@@ -129,5 +129,5 @@ dmypy.json
 .pyre/
 
 .vscode/
-credentials.json
+config.json
 .idea/
