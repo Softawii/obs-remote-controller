@@ -1,15 +1,9 @@
 # Discord
 import discord
 from discord.ext import commands, tasks
-from discord.ext.commands import has_permissions, CheckFailure
-import random
-import copy
-from typing import Union
 import json
-import os
 import logging
 import sys
-import math
 
 # My content
 import core.core as core
