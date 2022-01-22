@@ -22,3 +22,6 @@ class PageSystem:
     
     def set_page(self, page: int):
         self._current_page_number = page
+        
+    def get_current_page_items_number(self):
+        return self._current_page_items_number

@@ -22,6 +22,7 @@ logging.debug("Removed Discord.py logs")
 
 bot = commands.Bot(command_prefix='$', description='A bot to control the OBS Studio')
 scenes = (False, [])
+current_page = []
 
 page_system = PageSystem(['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣'])
 PAGE_CONTAINS_EMOJI = lambda x, reactions: len(list(filter(lambda y: x == y.emoji, reactions)))
@@ -29,7 +30,7 @@ PAGE_CONTAINS_EMOJI = lambda x, reactions: len(list(filter(lambda y: x == y.emoj
 
 @tasks.loop(seconds = config['update_time'])
 async def update_scene_list():
-    global scenes, current_page, current_page_items
+    global scenes, current_page
     
     _scenes = await core.scene_list()
     
@@ -37,6 +38,10 @@ async def update_scene_list():
         print('update_scene_list: updated list = ' + str(_scenes[0]) + ' ' + str(_scenes[1]))
     
     scenes = (_scenes[0], _scenes[1])
+    if scenes[0]:
+        current_page = page_system.get_current_page_items(scenes[1])
+    else:
+        current_page = []
     
     channel = get_channel()
     if channel != False:
@@ -45,12 +50,21 @@ async def update_scene_list():
         try: 
             message = await channel.fetch_message(config["msg-id"])
             if scenes[0]:
-                await message.edit(content="", embed=scene_list_embed(scenes[1]))
+                await message.edit(content="", embed=scene_list_embed(current_page))
             else:
                 await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
-        except NotFound: 
+        except discord.NotFound: 
             # TODO: Creating another one
-            return False
+            pass
+        
+        # Adding reactions
+        current_page_items = len(current_page)
+        for i in range(len(page_system.emoji_list)):
+            if i >= current_page_items and PAGE_CONTAINS_EMOJI(page_system.emoji_list[i], message.reactions):
+                await message.clear_reaction(page_system.emoji_list[i])
+            elif i < current_page_items and not PAGE_CONTAINS_EMOJI(page_system.emoji_list[i], message.reactions):
+                await message.add_reaction(page_system.emoji_list[i])    
+     
 
 def get_channel():
     guild = list(filter(lambda x: x.id == config['guild-id'], bot.guilds))
@@ -68,21 +82,6 @@ def get_channel():
         return False
 
     return channel
-
-
-@tasks.loop(seconds = config['update_time'])   
-async def update_embed():
-    
-    print('update_embed: page_system = ' + str(page_system.get_current_page_items(scenes[1])))
-    
-    # # Adding reactions
-    # for i in range(len(page_system.emoji_list)):
-    #     if i >= current_page_items and PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
-    #         await message.clear_reaction(PAGE_SETTINGS[1][i])
-    #     elif i < current_page_items and not PAGE_CONTAINS_EMOJI(PAGE_SETTINGS[1][i], message.reactions):
-    #         await message.add_reaction(PAGE_SETTINGS[1][i])    
-     
-    return
 
 
 @bot.event
@@ -107,7 +106,6 @@ async def on_ready():
     
     # Loop to update the scene list, every 'update_time' seconds
     update_scene_list.start()
-    update_embed.start()
     print("Loop Started")
     
     
@@ -123,11 +121,12 @@ async def on_raw_reaction_add(payload):
     
     if payload.guild_id == config["guild-id"] and payload.channel_id == config["channel-id"] and message.id == config["msg-id"]:
         
-        await message.remove_reaction(emoji, user)
-        
-        if emoji.name in PAGE_SETTINGS[1][:current_page_items]:
-            index = PAGE_SETTINGS[1].index(emoji.name)
-            await cam(bot.get_channel(payload.channel_id), scenes[1][index])
+        if bot.user.id != user.id:
+            await message.remove_reaction(emoji, user)
+
+            if emoji.name in page_system.emoji_list[:page_system.get_current_page_items_number()]:
+                index = page_system.emoji_list.index(emoji.name)
+                await cam(bot.get_channel(payload.channel_id), current_page[index])
             
                       
 @bot.command()
@@ -145,7 +144,7 @@ async def setup(ctx):
     guild = ctx.message.guild
     channel = await guild.create_text_channel(config["channel-name"])
           
-    global scenes
+    global scenes, current_page
     
     ok = scenes[0]
     lst = scenes[1]
@@ -153,7 +152,7 @@ async def setup(ctx):
     if not ok:
         msg = await channel.send('Ocorreu um erro ao obter a lista de cenas, talvez o obs esteja desconectado ou não está configurado corretamente')
     else:
-        msg = await channel.send(embed=scene_list_embed(lst))
+        msg = await channel.send(embed=scene_list_embed(current_page))
 
     config["guild-id"]   = guild.id
     config["channel-id"] = channel.id
