@@ -25,6 +25,7 @@ PAGE_CONTAINS_EMOJI = lambda x, reactions: len(list(filter(lambda y: x == y.emoj
 
 @tasks.loop(seconds = config['update_time'])
 async def update_scene_list():
+    
     global scenes, current_page, last_page_size
     
     _scenes = await core.scene_list()
@@ -33,11 +34,12 @@ async def update_scene_list():
         print('update_scene_list: updated list = ' + str(_scenes[0]) + ' ' + str(_scenes[1]))
     
     scenes = (_scenes[0], _scenes[1])
+    
     if scenes[0]:
         current_page = page_system.get_current_page_items(scenes[1])
     else:
         current_page = []
-    
+     
     channel = get_channel()
     if channel != False:
         
@@ -47,7 +49,9 @@ async def update_scene_list():
             if scenes[0]:
                 await message.edit(content="", embed=scene_list_embed(current_page))
             else:
+                await message.clear_reactions()
                 await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
+                return
         except discord.NotFound: 
             # TODO: Creating another one
             return
