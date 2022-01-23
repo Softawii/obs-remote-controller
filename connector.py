@@ -50,7 +50,8 @@ async def update_scene_list():
                 await message.edit(content="", embed=scene_list_embed(current_page))
             else:
                 await message.clear_reactions()
-                await message.edit(content="O programa está indisponível, tente novamente mais tarde!", embed=None)
+                embed = utils.createEmbed(title="Erro ao buscar as cenas", description="O OBS pode estar indisponível, ou mal configurado", color=0xff4400, fields=[], img="")
+                await message.edit(content="", embed=embed)
                 return
         except discord.NotFound: 
             # TODO: Creating another one
