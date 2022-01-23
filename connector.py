@@ -98,7 +98,7 @@ async def on_ready():
         await core.setup()
     except:
         print("Runtime Error: Maybe the OBS is off or the credentials are wrong")
-        sys.exit(1)
+        # sys.exit(1)
     
     print("Getting current scene")
     ok, current = await core.get_current_scene()
