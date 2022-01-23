@@ -43,5 +43,4 @@ Obs: The IDs will be filled automatically in the step 6.
 
 ## Known Issues
 - Discord requests are too fast and the bot is being rate limited
-- Cannot reconnect after lost connection to OBS
 - OBS sometimes crashes when is closed while the controller is still running
