@@ -17,6 +17,7 @@ This program allows to remotely **change between scenes by reacting to emojis** 
 
 To get everything working properly, follow these steps:
 1. Install every requirement above
+    - You can do it manually or by executing `pip install -r requirements.txt`
 2. Get the Discord bot token and then replace in config.json
 3. Set the OBS websocket port and password and then replace in config.json
     - Recommended to keep the default port, 4444
