@@ -16,7 +16,7 @@ import core.core as core
 import utils.utils as utils
 from utils.pages import PageSystem
 
-config = json.load(open('credentials.json'))
+config = json.load(open('config.json'))
 logging.getLogger("discord").setLevel(logging.WARNING)
 logging.debug("Removed Discord.py logs")
 
@@ -171,7 +171,7 @@ async def setup(ctx):
     config["channel-id"] = channel.id
     config["msg-id"]     = msg.id
     
-    with open('credentials.json', 'w') as outfile:
+    with open('config.json', 'w') as outfile:
         json.dump(config, outfile, indent=4)
 
 

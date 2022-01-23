@@ -3,7 +3,7 @@ import simpleobsws
 import json
 
 
-_config = json.load(open('credentials.json'))
+_config = json.load(open('config.json'))
 _parameters = simpleobsws.IdentificationParameters(ignoreNonFatalRequestChecks = False) # Create an IdentificationParameters object (optional for connecting)
 _ws = simpleobsws.WebSocketClient(url = _config['obs_url'], 
                                  password = _config['obs_password'], 

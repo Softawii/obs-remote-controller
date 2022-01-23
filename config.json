@@ -4,7 +4,7 @@
     "obs_password": "123456",
     "update_time": 2,
     "channel-name": "controller",
-    "guild-id": 856534404779868180,
-    "channel-id": 934211417509363793,
-    "msg-id": 934211419048669184
+    "guild-id": null,
+    "channel-id": null,
+    "msg-id": null
 }
