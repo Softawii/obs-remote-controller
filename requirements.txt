@@ -1,0 +1,2 @@
+discord.py==1.7.3
+simpleobsws>=1.0.0
